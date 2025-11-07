@@ -14,6 +14,33 @@ const [errors, setErrors] = useState({});
 const [touched, setTouched] = useState({});
 useDocumentTitle("SignIn | LegalSeg");
 
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("token");
+  const userString = params.get("user");
+
+  if (token && userString) {
+    try {
+      const user = JSON.parse(decodeURIComponent(userString));
+
+      localStorage.setItem("token", token);
+      localStorage.setItem("isAuthenticated", "true");
+      localStorage.setItem("user", JSON.stringify(user));
+
+      toast.success(`Welcome ${user.username || "User"}!`);
+      navigate("/dashboard");
+
+      // clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } catch (err) {
+      console.error("Error parsing user data from Google auth:", err);
+      toast.error("Login failed. Please try again.");
+    }
+  }
+}, [navigate]);
+
+
+
   useEffect(() => {
     const style = document.createElement("style");
     style.innerHTML = `
@@ -87,27 +114,32 @@ const handleBlur = (field) => {
 
 const handleSignIn = async (e) => {
   e.preventDefault();
-  const userData = { email, password };
+
+  const loginData = { email, password };
 
   try {
-    const response = await axios.post("http://localhost:5000/api/auth/login", userData);
-    const result = response.data;
+    const res = await axios.post("http://localhost:5000/api/auth/login", loginData);
+    const result = res.data;
 
-    // Store user data
-    localStorage.setItem("user", JSON.stringify(result.user || { fullName: "User" }));
+    const user = result.user || {};
+    const normalizedUser = {
+      name: user.fullName || user.name || "User",  // ✅ use "name"
+      email: user.email,
+      id: user._id || user.id,
+    };
+
     localStorage.setItem("token", result.token);
-    localStorage.setItem("isAuthenticated", "true"); // ✅ add this
+    localStorage.setItem("user", JSON.stringify(normalizedUser));
+    localStorage.setItem("isAuthenticated", "true");
 
-    console.log("✅ Navigating to dashboard...");
-
-    if (onClose) onClose();
-    navigate("/dashboard", { replace: true });
+    toast.success("Login successful!");
+    navigate("/dashboard");
   } catch (err) {
-    toast.success("Login failed: " + err.message);
+    const errorMessage =
+      err.response?.data?.message || "Invalid credentials. Please try again.";
+    toast.error(errorMessage);
   }
 };
-
-
 const handleGoogleSignIn = () => {
   window.location.href = "http://localhost:5000/api/auth/google";
 };

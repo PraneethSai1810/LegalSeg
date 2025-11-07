@@ -4,7 +4,6 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import nodemailer from "nodemailer";
-import "../config/googleAuth.js";
 
 const router = express.Router();
 
@@ -60,19 +59,42 @@ router.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
+    // 1️⃣ Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser)
       return res.status(400).json({ message: "User already exists" });
 
+    // 2️⃣ Hash password
     const hashed = await bcrypt.hash(password, 10);
+
+    // 3️⃣ Create new user
     const newUser = new User({ name, email, password: hashed });
     await newUser.save();
 
-    res.status(201).json({ message: "User registered successfully" });
+    // 4️⃣ Generate JWT token
+    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    // 5️⃣ Exclude password from response
+    const userResponse = {
+      id: newUser._id,
+      name: newUser.name,
+      email: newUser.email,
+    };
+
+    // 6️⃣ Send success response
+    res.status(201).json({
+      message: "User registered successfully",
+      token,
+      user: userResponse,
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("❌ Error in /register:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
+
 
 // =============================
 // ✅ LOGIN
@@ -102,20 +124,36 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
 
+    // 1️⃣ Check if user exists
+    const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // 2️⃣ Check password validity
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ message: "Invalid password" });
 
+    // 3️⃣ Generate JWT token
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
 
-    res.json({ message: "Login successful", token });
+    // 4️⃣ Prepare user object (excluding password)
+    const userResponse = {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+    };
+
+    // 5️⃣ Send full response
+    res.json({
+      message: "Login successful",
+      token,
+      user: userResponse,
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("❌ Error in /login:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
@@ -335,12 +373,31 @@ router.put("/profile", async (req, res) => {
 
 // Google Auth (excluded from Swagger)
 router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+
 router.get(
   "/google/callback",
-  passport.authenticate("google", {
-    successRedirect: "http://localhost:3000/dashboard",
-    failureRedirect: "http://localhost:3000/login",
-  })
+  passport.authenticate("google", { session: false }),
+  async (req, res) => {
+    try {
+      const user = req.user;
+
+      // Generate JWT
+      const token = jwt.sign(
+        { id: user._id, email: user.email, name: user.name },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      // ✅ Redirect with token in URL
+      console.log("✅ Redirecting to frontend with token:", token);
+      res.redirect(`http://localhost:3000/dashboard?token=${token}`);
+    } catch (err) {
+      console.error("Google callback error:", err);
+      res.redirect("http://localhost:3000/login");
+    }
+  }
 );
+
+
 
 export default router;

@@ -27,8 +27,9 @@ export default function App() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/insights" element={<InsightsPage />} />
-        <Route path="/results" element={<ResultsViewerPage />} />
+        <Route path="/insights/:id" element={<InsightsPage />} />
+        <Route path="/results/:id" element={<ResultsViewerPage />} />
+
       </Routes>
 
       <ToastContainer

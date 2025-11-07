@@ -8,63 +8,68 @@ const GlobalLoader = () => {
   useEffect(() => {
     const style = document.createElement("style");
     style.innerHTML = `
-      .loader-overlay {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(3px);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        animation: fadeIn 0.3s ease-in-out;
-      }
+  .loader-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease-in-out;
+  }
 
-      .loader-ring {
-        width: 70px;
-        height: 70px;
-        border-radius: 50%;
-        border: 6px solid transparent;
-        border-top: 6px solid #00aaff;
-        border-right: 6px solid #ff00cc;
-        animation: spin 1.2s linear infinite, glow 2s ease-in-out infinite;
-        box-shadow: 0 0 20px rgba(255, 0, 204, 0.6), 0 0 20px rgba(0, 170, 255, 0.6);
-      }
+  .loader-ring {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    border: 4px solid transparent;
+    background: conic-gradient(
+      from 0deg,
+      #ff00cc,
+      #00aaff,
+      #ff00cc
+    );
+    -webkit-mask: 
+      radial-gradient(farthest-side, transparent calc(100% - 6px), black 0);
+    mask: 
+      radial-gradient(farthest-side, transparent calc(100% - 6px), black 0);
+    animation: spin 1s linear infinite;
+    filter: drop-shadow(0 0 8px rgba(255, 0, 204, 0.6)) 
+            drop-shadow(0 0 8px rgba(0, 170, 255, 0.6));
+  }
 
-      .loader-text {
-        margin-top: 18px;
-        font-size: 1.6rem;
-        font-weight: bold;
-        font-family: "Poppins", sans-serif;
-        background: linear-gradient(90deg, #00aaff, #ff00cc);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        animation: textGlow 2s ease-in-out infinite alternate;
-      }
+  .loader-text {
+    margin-top: 14px;
+    font-size: 1.4rem;
+    font-weight: 600;
+    font-family: "Poppins", sans-serif;
+    background: linear-gradient(90deg, #00aaff, #ff00cc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    animation: textGlow 2s ease-in-out infinite alternate;
+  }
 
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
 
-      @keyframes glow {
-        0% { box-shadow: 0 0 10px rgba(255, 0, 204, 0.4), 0 0 10px rgba(0, 170, 255, 0.4); }
-        100% { box-shadow: 0 0 30px rgba(255, 0, 204, 0.8), 0 0 30px rgba(0, 170, 255, 0.8); }
-      }
+  @keyframes textGlow {
+    from { text-shadow: 0 0 4px #00aaff, 0 0 8px #ff00cc; }
+    to { text-shadow: 0 0 10px #ff00cc, 0 0 20px #00aaff; }
+  }
 
-      @keyframes textGlow {
-        from { text-shadow: 0 0 5px #00aaff, 0 0 10px #ff00cc; }
-        to { text-shadow: 0 0 15px #ff00cc, 0 0 25px #00aaff; }
-      }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+`;
 
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-      }
-    `;
     document.head.appendChild(style);
 
     const requestInterceptor = axios.interceptors.request.use((config) => {

@@ -4,8 +4,8 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 export default function About() {
   const steps = [
     { title: "Upload Document", text: "Upload a judgement or text to get started." },
-    { title: "LegalBERT", text: "LegalBERT processes and extracts context-rich embeddings." },
-    { title: "BiLSTM", text: "BiLSTM captures sequential dependencies from the text." },
+    { title: "Legal Longfromer", text: "Longformer processes and extracts context-rich embeddings." },
+    { title: "Transformer", text: "Transformer captures global context from the text." },
     { title: "CRF", text: "CRF assigns labels and segments the document." },
     { title: "Output", text: "Get clean structured legal segments for easy research." },
   ];
@@ -56,25 +56,27 @@ export default function About() {
           zIndex: 0,
         }}
       />
-
-      <h2
-        className="about-title"
-        style={{
-          fontSize: "5.5rem",
-          fontWeight: "500",
-          marginBottom: "30px",
-          marginTop: "20px",
-          fontFamily: "'Great Vibes', cursive",
-          letterSpacing: "1px",
-          background: "linear-gradient(90deg, #00c6ff, #bc13fe, #ff0080)",
-          WebkitBackgroundClip: "text",
-          WebkitTextFillColor: "transparent",
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        From raw legal documents to structured insights — step by step.
-      </h2>
+<h2
+  className="about-title"
+  style={{
+    fontSize: "4.3rem",
+    fontWeight: "500",
+    lineHeight: "1.25",
+    marginBottom: "40px",
+    marginTop: "10px",
+    fontFamily: "'Great Vibes', cursive",
+    letterSpacing: "0.5px",
+    background: "linear-gradient(90deg, #00c6ff, #bc13fe, #ff0080)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
+    position: "relative",
+    zIndex: 1,
+    textAlign: "center",
+    maxWidth: "90%",
+  }}
+>
+  From Legal Docs to Lasting Insights.
+</h2>
 
       <div
         className="about-carousel"
@@ -144,10 +146,10 @@ export default function About() {
                   transition: "all 0.6s ease",
                   zIndex,
                   opacity,
-                  width: "400px",
-                  height: "270px",
-                  padding: "20px",
-                  borderRadius: "20px",
+                  width: "340px",
+                  height: "230px",
+                  padding: "16px",
+                  borderRadius: "18px",
                   background: "rgba(20, 20, 20, 0.55)",
                   border: "1px solid rgba(247, 238, 238, 0.25)",
                   backdropFilter: "blur(6px)",

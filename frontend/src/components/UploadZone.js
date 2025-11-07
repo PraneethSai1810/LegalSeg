@@ -61,15 +61,15 @@ export default function UploadZone({ onFileSelect }) {
   };
 
   const handleTextAnalysis = () => {
-    if (textInput.trim().length < 50) {
-      alert("Please enter at least 50 characters of text");
-      return;
-    }
-    // Create a mock file object from text
-    const textBlob = new Blob([textInput], { type: 'text/plain' });
-    const textFile = new File([textBlob], "pasted-text.txt", { type: "text/plain" });
-    onFileSelect(textFile);
-  };
+  if (textInput.trim().length < 50) {
+    alert("Please enter at least 50 characters of text");
+    return;
+  }
+
+  console.log("📤 Sending plain text to backend...");
+  onFileSelect(textInput); // ✅ send string directly, NOT a File object
+};
+
 
   return (
     <>

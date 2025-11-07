@@ -154,20 +154,29 @@ export default function Login() {
     navigate('/signin');
   };
 
-const handleSignUp = async (e) => { 
+const handleSignUp = async (e) => {
   e.preventDefault();
-  const userData = { name: fullName, email, password }; // your form states
-  try {
-    const response = await axios.post("http://localhost:5000/api/auth/register", userData);
-    const result = response.data;
 
-    localStorage.setItem("user", JSON.stringify(result.user));
-    localStorage.setItem("token", result.token);
+  const userData = { name: fullName, email, password };
+
+  try {
+    const res = await axios.post("http://localhost:5000/api/auth/register", userData);
+
+    // ✅ Store everything in localStorage
+    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("user", JSON.stringify(res.data.user));
+    localStorage.setItem("isAuthenticated", "true");
+
+    toast.success("Signup successful!");
     navigate("/dashboard");
   } catch (err) {
-    toast.success("Signup failed: " + err.message);
+    const errorMessage =
+      err.response?.data?.message || "Signup failed. Please try again.";
+    toast.error(errorMessage);
   }
 };
+
+
 
 
 

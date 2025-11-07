@@ -1,5 +1,6 @@
 // src/pages/Dashboard.js
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
 import DashboardNavbarSimple from "../components/DashboardNavbarSimple";
 import UploadZone from "../components/UploadZone";
@@ -24,6 +25,9 @@ export default function Dashboard() {
   const [activeRoleFilters, setActiveRoleFilters] = useState([]);
   const [insightsCollapsed, setInsightsCollapsed] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [error, setError] = useState(null);
+const [history, setHistory] = useState([]);
+
 
   useDocumentTitle("Dashboard | LegalSeg");
   const allRoles = getAllRoles();
@@ -37,6 +41,61 @@ export default function Dashboard() {
     }
   }, [location.state, navigate]);
 
+  useEffect(() => {
+  try {
+
+    // ✅ 1. Check if token is in URL (after Google login)
+    const params = new URLSearchParams(location.search);
+    const token = params.get("token");
+
+    if (token) {
+      console.log("🔐 Token found in URL:", token);
+
+      // ✅ Store token
+      localStorage.setItem("token", token);
+      localStorage.setItem("isAuthenticated", "true");
+
+      // Optionally fetch user profile with this token
+      fetch("http://localhost:5000/api/auth/profile", {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => res.json())
+        .then((userData) => {
+          if (userData && !userData.message) {
+            localStorage.setItem("user", JSON.stringify(userData));
+            const firstName = (userData.name || "User").split(" ")[0];
+            setUsername(firstName);
+          } else {
+            console.warn("⚠️ Profile fetch failed:", userData);
+          }
+        })
+        .catch((err) => console.error("Profile fetch error:", err));
+
+      // ✅ Remove token from URL (for clean UI)
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+
+    // ✅ 2. Normal flow: load from localStorage
+    const storedUser = localStorage.getItem("user");
+    const isAuthenticated = localStorage.getItem("isAuthenticated");
+
+    if (!isAuthenticated || !storedUser) {
+      navigate("/signin");
+      return;
+    }
+
+    const userData = JSON.parse(storedUser);
+    const fullName = userData.name || userData.fullName || "User";
+    const firstName = fullName.split(" ")[0];
+    setUsername(firstName);
+  } catch (err) {
+    console.error("Error loading user:", err);
+    navigate("/signin");
+  }
+}, [location, navigate]);
+
+/*
   // ✅ Load user and show correct name
   useEffect(() => {
     try {
@@ -49,7 +108,7 @@ export default function Dashboard() {
       }
 
       const userData = JSON.parse(storedUser);
-      const fullName = userData.fullName || userData.name || "User";
+      const fullName = userData.name || userData.fullName || "User";
       const firstName = fullName.split(" ")[0];
       setUsername(firstName);
 
@@ -58,15 +117,15 @@ export default function Dashboard() {
       navigate("/signin");
     }
   }, [navigate]);
+  */
 
   // ✅ Fetch real document history from backend
   useEffect(() => {
     const fetchHistory = async () => {
       try {
         const res = await getDocumentHistory();
-        if (res && res.documents) {
-          setDocuments(res.documents);
-        }
+if (res) setDocuments(res);
+
       } catch (err) {
         console.error("Error fetching document history:", err);
       }
@@ -75,42 +134,90 @@ export default function Dashboard() {
   }, []);
 
   // File Upload Handler (mock progress but could connect to backend later)
-  const handleFileSelect = async (file) => {
-    setUploadState("uploading");
-    setUploadProgress(0);
-    try {
-      for (let i = 0; i <= 100; i += 10) {
-        setUploadProgress(i);
-        await new Promise((resolve) => setTimeout(resolve, 200));
-      }
+// File Upload Handler (mock progress but could connect to backend later)
+const handleFileSelect = async (inputFileOrText) => {
+  setUploadState("uploading");
+  setUploadProgress(0);
+  setAnalysisStage(1);
 
-      setUploadState("analyzing");
-      setAnalysisStage(2);
-      const stages = [2, 3, 4, 5];
-      for (let stage of stages) {
-        setAnalysisStage(stage);
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-      }
+   try {
+    console.log("📤 Sending document to backend...");
 
-      const mockResults = generateMockResults(file.name);
-      setResults(mockResults);
-      const newDoc = {
-        id: Date.now(),
-        title: file.name,
-        date: new Date().toLocaleString(),
-        sentenceCount: mockResults.sentences.length,
-        status: "completed",
-      };
-      setCurrentDocument(newDoc);
-      setUploadState("completed");
-      setDocuments([newDoc, ...documents]);
-      navigate("/results", { state: { document: newDoc, results: mockResults } });
-    } catch (error) {
-      console.error("Error processing document:", error);
-      toast.error("Error processing document. Please try again.");
-      setUploadState("idle");
+    // ✅ Detect whether it's plain text or a file
+    let res;
+    if (typeof inputFileOrText === "string") {
+      // plain text
+      res = await uploadDocument({ text: inputFileOrText }, (percent) =>
+        setUploadProgress(percent)
+      );
+    } else {
+      // file (PDF, DOCX, TXT)
+      res = await uploadDocument(inputFileOrText, (percent) =>
+        setUploadProgress(percent)
+      );
     }
-  };
+
+    console.log("✅ Backend response:", res);
+
+    // guard: backend returns document & results (your routes do this)
+    const returnedDoc = res.document || res.prediction || null;
+    const returnedResults = res.results || res.prediction?.sentences
+      ? {
+          sentences: res.prediction?.sentences || res.results?.sentences,
+          summary: res.prediction?.summary || res.results?.summary,
+          avgConfidence:
+            res.prediction?.avgConfidence || res.results?.avgConfidence,
+        }
+      : res.results || null;
+
+    // If backend returns immediately, we still want to show analyzing UI
+    setUploadState("analyzing");
+    // small animation/stages for UX
+    const stages = [2, 3, 4, 5];
+    for (let st of stages) {
+      setAnalysisStage(st);
+      // tweak delay if you want slower/faster
+      await new Promise((r) => setTimeout(r, 600));
+    }
+
+    // Build document object for UI (normalize fields)
+    const newDoc = {
+      id: returnedDoc?.id || returnedDoc?._id || Date.now(),
+      title:
+        returnedDoc?.title ||
+        returnedDoc?.storedFilename ||
+        inputFileOrText.name ||
+        "pasted-text.txt",
+      date: returnedDoc?.date
+        ? new Date(returnedDoc.date).toLocaleString()
+        : new Date().toLocaleString(),
+      sentenceCount: returnedResults?.sentences?.length || 0,
+      status: returnedDoc?.status || "completed",
+    };
+
+    setResults(returnedResults || inputFileOrText.name); // fallback
+    setCurrentDocument(newDoc);
+    setUploadState("completed");
+    setDocuments((prev) => [newDoc, ...prev]);
+
+    // ✅ Navigate to results page using backend _id
+    const docId =
+      returnedDoc?.id ||
+      returnedDoc?._id ||
+      res?.prediction?._id ||
+      newDoc.id;
+
+    navigate(`/results/${docId}`, {
+      state: { document: newDoc, results: returnedResults },
+    });
+  } catch (err) {
+    console.error("Error uploading document:", err);
+    toast.error("Upload failed. Please try again.");
+    setUploadState("idle");
+    setUploadProgress(0);
+  }
+};
+
 
   const generateMockResults = (filename) => {
     const mockSentences = [
@@ -128,12 +235,27 @@ export default function Dashboard() {
     };
   };
 
-  const handleSelectDocument = (doc) => {
+ // src/pages/Dashboard.js
+const handleSelectDocument = async (doc) => {
+  try {
+    setUploadState("completed"); // ensure results UI is enabled
     setCurrentDocument(doc);
-    const mockResults = generateMockResults(doc.title);
-    setResults(mockResults);
-    setUploadState("completed");
-  };
+    // Fetch detailed results from backend for this doc id
+    // Use your existing util:
+    const res = await getDocumentResults(doc.id); // make sure this util uses /cases/:id
+    const documentFromServer = res; // getDocumentResults returns the document object per your api util
+    const mockResults = generateMockResults(doc.title); // fallback
+
+    const finalResults = documentFromServer?.results || documentFromServer?.prediction || mockResults;
+
+    setResults(finalResults);
+    // navigate to results page with state (same approach as upload)
+    navigate(`/results/${doc.id}`, { state: { document: doc, results: finalResults } }); 
+  } catch (err) {
+    console.error("Error fetching results for document:", err);
+    toast.error("Could not load document. Try again.");
+  }
+};
 
   // --- UI ---
   return (
@@ -208,7 +330,7 @@ export default function Dashboard() {
         )}
 
         {(uploadState === "uploading" || uploadState === "analyzing") && (
-          <div style={{ maxWidth: "800px", margin: "80px auto", textAlign: "center" }}>
+          <div style={{ maxWidth: "800px", margin: "80px auto", textAlign: "center" }}> 
             <h2 style={{ color: "#fff", fontSize: "2rem", marginBottom: "40px" }}>
               {uploadState === "uploading"
                 ? "Uploading your document..."

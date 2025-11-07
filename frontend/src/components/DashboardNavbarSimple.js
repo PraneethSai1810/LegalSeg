@@ -1,15 +1,34 @@
 // src/components/DashboardNavbarSimple.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, LogOut, History } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-export default function DashboardNavbarSimple({ username = "User", onHistoryClick }) {
+export default function DashboardNavbarSimple({ username: initialUsername = "User", onHistoryClick }) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [username, setUsername] = useState(initialUsername);
   const navigate = useNavigate();
+
+  // ✅ Load name from localStorage (for both Google + normal logins)
+  useEffect(() => {
+    try {
+      const storedUser = localStorage.getItem("user");
+      let name = "User";
+
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        name = parsed?.name || parsed?.fullName || "User";
+      }
+
+      setUsername(name.trim());
+    } catch (err) {
+      console.error("Error loading user from localStorage:", err);
+    }
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("isAuthenticated");
+    localStorage.removeItem("token");
     navigate("/");
   };
 
@@ -91,8 +110,7 @@ export default function DashboardNavbarSimple({ username = "User", onHistoryClic
               width: "45px",
               height: "45px",
               borderRadius: "50%",
-              background:
-                "linear-gradient(135deg, #00c6ff, #bc13fe, #ff0080)",
+              background: "linear-gradient(135deg, #00c6ff, #bc13fe, #ff0080)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -102,14 +120,10 @@ export default function DashboardNavbarSimple({ username = "User", onHistoryClic
               color: "#fff",
               transition: "transform 0.3s ease",
             }}
-            onMouseEnter={(e) =>
-              (e.target.style.transform = "rotate(5deg) scale(1.05)")
-            }
-            onMouseLeave={(e) =>
-              (e.target.style.transform = "rotate(0deg) scale(1)")
-            }
+            onMouseEnter={(e) => (e.target.style.transform = "rotate(5deg) scale(1.05)")}
+            onMouseLeave={(e) => (e.target.style.transform = "rotate(0deg) scale(1)")}
           >
-            {username.split(" ").map((n) => n[0]).join("")}
+            {username?.charAt(0)?.toUpperCase() || "U"}
           </div>
 
           {showDropdown && (
@@ -136,12 +150,8 @@ export default function DashboardNavbarSimple({ username = "User", onHistoryClic
                   fontFamily: "Montserrat, sans-serif",
                   transition: "background 0.3s ease",
                 }}
-                onMouseEnter={(e) =>
-                  (e.target.style.background = "rgba(255, 255, 255, 0.1)")
-                }
-                onMouseLeave={(e) =>
-                  (e.target.style.background = "transparent")
-                }
+                onMouseEnter={(e) => (e.target.style.background = "rgba(255, 255, 255, 0.1)")}
+                onMouseLeave={(e) => (e.target.style.background = "transparent")}
               >
                 <User size={16} style={{ marginRight: "8px" }} />
                 Profile
@@ -157,12 +167,8 @@ export default function DashboardNavbarSimple({ username = "User", onHistoryClic
                   borderTop: "1px solid rgba(255, 255, 255, 0.1)",
                   transition: "background 0.3s ease",
                 }}
-                onMouseEnter={(e) =>
-                  (e.target.style.background = "rgba(244, 67, 54, 0.1)")
-                }
-                onMouseLeave={(e) =>
-                  (e.target.style.background = "transparent")
-                }
+                onMouseEnter={(e) => (e.target.style.background = "rgba(244, 67, 54, 0.1)")}
+                onMouseLeave={(e) => (e.target.style.background = "transparent")}
               >
                 <LogOut size={16} style={{ marginRight: "8px" }} />
                 Logout

@@ -123,27 +123,43 @@ export const resetPassword = async (email, newPassword) => {
 // ================= DOCUMENTS =================
 
 // Upload document (file or text) with progress tracking
+// src/utils/api.js
 export const uploadDocument = async (fileOrText, onProgress) => {
   const formData = new FormData();
 
   if (fileOrText instanceof File) {
     formData.append("file", fileOrText);
+    formData.append("title", fileOrText.name);
   } else {
-    formData.append("text", fileOrText);
-    formData.append("title", "pasted-text.txt");
+    // 🧠 FIXED TEXT UPLOAD: send JSON instead of FormData
+    const payload = { text:fileOrText, title: "pasted-text.txt" };
+    const { data } = await api.post("/cases/upload", payload, {
+      headers: { "Content-Type": "application/json" },
+      onUploadProgress: (progressEvent) => {
+        if (typeof onProgress === "function" && progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percent);
+        }
+      },
+    });
+    return data; // ✅ return here for text upload
   }
 
+  // ✅ Return for file upload
   const { data } = await api.post("/cases/upload", formData, {
     onUploadProgress: (progressEvent) => {
-      if (onProgress && progressEvent.total) {
+      if (typeof onProgress === "function" && progressEvent.total) {
         const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
         onProgress(percent);
       }
     },
   });
 
-  return data; // { document, results }
-};
+  return data; // ✅ return for file upload
+}; // ✅ THIS closes the function properly
+
+
+
 
 // Fetch all documents (case history) for current user
 export const getDocumentHistory = async () => {
@@ -152,15 +168,29 @@ export const getDocumentHistory = async () => {
 };
 
 // Fetch specific document results by id
-export const getDocumentResults = async (documentId) => {
-  const { data } = await api.get(`/cases/${documentId}`);
-  return data.document; // single case object
+export const getDocumentResults = async (predictionId) => {
+  const { data } = await api.get(`/cases/predictions/${predictionId}`);
+  return data.prediction;
 };
+
 
 // (Optional) Delete document later if needed
 export const deleteDocument = async (documentId) => {
   console.warn("Delete endpoint not implemented in backend yet");
   return { message: "Mock delete - not implemented" };
 };
+
+// Fetch all predictions (LegalSeg) for current user
+export const getAllPredictions = async () => {
+  const { data } = await api.get("/cases/predictions/all");
+  return data.predictions; // array of prediction docs
+};
+
+// Fetch single prediction by id
+export const getPredictionById = async (id) => {
+  const { data } = await api.get(`/cases/predictions/${id}`);
+  return data.prediction; // single prediction object
+};
+
 
 export default api;

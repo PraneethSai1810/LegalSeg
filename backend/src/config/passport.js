@@ -1,7 +1,8 @@
+// src/config/passport.js
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import User from "../models/User.js";
 import dotenv from "dotenv";
+import User from "../models/User.js";
 
 dotenv.config();
 
@@ -10,33 +11,33 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "http://localhost:5000/api/auth/google/callback",
+      callbackURL: "http://localhost:5000/api/auth/google/callback", // ✅ backend callback URL
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        // Check if user already exists
-        let user = await User.findOne({ email: profile.emails[0].value });
+        const email = profile.emails?.[0]?.value;
 
+        // 🔍 Find or create user
+        let user = await User.findOne({ email });
         if (!user) {
-          // Create a new user if not found
           user = await User.create({
             name: profile.displayName,
-            email: profile.emails[0].value,
+            email,
+            googleId: profile.id,
+            password: null,
           });
         }
 
         return done(null, user);
       } catch (err) {
+        console.error("Google Auth Error:", err);
         return done(err, null);
       }
     }
   )
 );
 
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
+passport.serializeUser((user, done) => done(null, user.id));
 passport.deserializeUser((id, done) => {
   User.findById(id)
     .then((user) => done(null, user))

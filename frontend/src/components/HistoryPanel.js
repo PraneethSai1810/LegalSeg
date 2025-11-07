@@ -1,10 +1,46 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import { ChevronLeft, FileText, History } from "lucide-react";
 
-export default function HistoryPanel({ documents, onSelectDocument, isCollapsed, onToggle }) {
+export default function HistoryPanel({
+  onSelectDocument,
+  isCollapsed,
+  onToggle,
+}) {
+  const [documents, setDocuments] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredDocs = documents.filter(doc =>
+  // ✅ Fetch user history on mount
+
+useEffect(() => {
+  const fetchPredictions = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get("http://localhost:5000/api/cases/predictions/all", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const formattedDocs = res.data.predictions.map((item) => ({
+        id: item._id,
+        title: item.title || "Untitled Document",
+        date: new Date(item.createdAt || item.date).toLocaleString(),
+        sentenceCount: item.sentences?.length || 0,
+        status: item.status || "completed",
+      }));
+
+      setDocuments(formattedDocs);
+    } catch (err) {
+      console.error("Error fetching predictions:", err);
+    }
+  };
+
+  fetchPredictions();
+}, []);
+
+
+
+
+  const filteredDocs = documents.filter((doc) =>
     doc.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -12,10 +48,11 @@ export default function HistoryPanel({ documents, onSelectDocument, isCollapsed,
     <>
       {/* ✅ Sliding Panel */}
       <div
+       className="history-panel"
         style={{
           position: "fixed",
           top: "70px",
-          left: isCollapsed ? "-340px" : "0", // slide off-screen when collapsed
+          left: isCollapsed ? "-340px" : "0",
           width: "320px",
           height: "calc(100vh - 70px)",
           background: "rgba(17, 17, 17, 0.95)",
@@ -65,7 +102,9 @@ export default function HistoryPanel({ documents, onSelectDocument, isCollapsed,
                 transition: "color 0.3s ease",
               }}
               onMouseEnter={(e) => (e.target.style.color = "#fff")}
-              onMouseLeave={(e) => (e.target.style.color = "rgba(255, 255, 255, 0.6)")}
+              onMouseLeave={(e) =>
+                (e.target.style.color = "rgba(255, 255, 255, 0.6)")
+              }
             >
               <ChevronLeft size={28} />
             </div>
@@ -114,7 +153,11 @@ export default function HistoryPanel({ documents, onSelectDocument, isCollapsed,
             filteredDocs.map((doc) => (
               <div
                 key={doc.id}
-                onClick={() => onSelectDocument(doc)}
+                onClick={() => {
+  localStorage.setItem("selectedPredictionId", doc.id);
+  window.location.href = `/results/${doc.id}`;
+}}
+
                 style={{
                   padding: "15px",
                   marginBottom: "10px",
@@ -130,8 +173,10 @@ export default function HistoryPanel({ documents, onSelectDocument, isCollapsed,
                   e.currentTarget.style.transform = "translateX(5px)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-                  e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)";
+                  e.currentTarget.style.background =
+                    "rgba(255, 255, 255, 0.05)";
+                  e.currentTarget.style.borderColor =
+                    "rgba(255, 255, 255, 0.1)";
                   e.currentTarget.style.transform = "translateX(0)";
                 }}
               >
@@ -178,7 +223,8 @@ export default function HistoryPanel({ documents, onSelectDocument, isCollapsed,
                       color: "#2196F3",
                     }}
                   >
-                    {doc.sentenceCount} sentences
+                    {typeof doc.avgConfidence === "number" ? doc.avgConfidence.toFixed(1) : "—"}%
+                      
                   </span>
                   {doc.status === "completed" && (
                     <span style={{ color: "#4CAF50" }}>✓</span>
@@ -193,6 +239,7 @@ export default function HistoryPanel({ documents, onSelectDocument, isCollapsed,
       {/* ✅ Floating Button when collapsed */}
       {isCollapsed && (
         <div
+        className="history-floating-btn"
           onClick={onToggle}
           style={{
             position: "fixed",
@@ -211,8 +258,12 @@ export default function HistoryPanel({ documents, onSelectDocument, isCollapsed,
             zIndex: 120,
             boxShadow: "0 0 12px rgba(0,198,255,0.3)",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 0 20px rgba(0,198,255,0.7)")}
-          onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 0 12px rgba(0,198,255,0.3)")}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.boxShadow = "0 0 20px rgba(0,198,255,0.7)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.boxShadow = "0 0 12px rgba(0,198,255,0.3)")
+          }
         >
           <History size={26} color="#00c6ff" />
         </div>

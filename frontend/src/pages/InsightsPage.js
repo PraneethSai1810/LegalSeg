@@ -1,6 +1,6 @@
 // src/pages/InsightsPage.js
-import React, { useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   BarChart3,
   Download,
@@ -9,59 +9,130 @@ import {
   TrendingUp,
   FileText,
 } from "lucide-react";
-import { getAllRoles } from "../utils/constants";
+import { jsPDF } from "jspdf";
+import { getAllRoles, getRoleById } from "../utils/constants";
+import axios from "axios";
 
 export default function InsightsPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const results = location.state?.results; // passed from DashboardNavbar
+  const params = useParams();
+  console.log("Opened Insights for ID:", params.id);
   const allRoles = getAllRoles();
+
+  const [results, setResults] = useState(location.state?.results || null);
+  const [documentData, setDocumentData] = useState(location.state?.document || null);
+  const [loading, setLoading] = useState(!results);
 
   console.log("Insights received:", results);
 
-  // ✅ Optional: redirect if no results were passed
-  useEffect(() => {
-    if (!results) {
-      navigate("/"); // go back home if no results
+  // ✅ Fetch actual prediction if no results were passed (direct access from history)
+useEffect(() => {
+  const fetchPrediction = async () => {
+    const id = params.id || location.state?.document?.id;
+    console.log("Opened Insights for ID:", id);
+
+    try {
+      if (!id) return;
+
+      const token = localStorage.getItem("token");
+      const { data } = await axios.get(
+        `http://localhost:5000/api/cases/predictions/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      console.log("🧩 Prediction title from backend:", data.prediction.title);
+      console.log("Insights received:", data.prediction);
+
+      setResults(data.prediction);
+
+      const docInfo = {
+        id: data.prediction._id,
+        title:
+          data.prediction.title ||
+          data.prediction.fileName ||
+          data.prediction.storedFilename ||
+          location.state?.document?.title ||
+          "Untitled Document",
+      };
+
+      setDocumentData(docInfo);
+      localStorage.setItem("lastOpenedDoc", JSON.stringify(docInfo));
+    } catch (err) {
+      console.error("Error fetching insights:", err);
+    } finally {
+      setLoading(false);
     }
-  }, [results, navigate]);
+  };
 
-  // ✅ Optional: set browser tab title
-  useEffect(() => {
-    document.title = "Insights | LegalSeg";
-  }, []);
+  // ✅ Only run once per ID (prevents duplicate fetch)
+  if (params.id) {
+    fetchPrediction();
+  }
+}, [params.id]);
 
-  // ✅ Handle Back button (send results back to Dashboard so ResultsViewer shows)
-const handleBackToResults = () => {
-  navigate("/results", {
+
+  // ✅ Back to Results (preserves correct file name)
+  const handleBackToResults = () => {
+  const resultId =
+    params.id ||
+    results?._id ||
+    results?.id ||
+    location.state?.document?.id;
+
+  const savedDoc = JSON.parse(localStorage.getItem("lastOpenedDoc") || "{}");
+
+  const titleFromAnySource =
+    location.state?.document?.title ||
+    results?.title ||
+    results?.storedFilename ||
+    savedDoc.title ||
+    "Untitled Document";
+
+  console.log("🧭 Navigating back with:", { resultId, titleFromAnySource });
+
+  if (!resultId) {
+    navigate("/dashboard");
+    return;
+  }
+
+  navigate(`/results/${resultId}`, {
     state: {
-      results, // safe to pass
-      document: {
-        id: document?.id || null,
-        title: document?.title || "Untitled",
-      },
+      results,
+      document: { id: resultId, title: titleFromAnySource },
     },
   });
 };
 
 
 
-  // ✅ Export: Download PDF (simple text version)
-  const handleDownloadPDF = () => {
-    const blob = new Blob(
-      [
-        `LegalSeg Insights Report\n\nSummary:\n${results.summary}\n\n` +
-        `Average Confidence: ${results.avgConfidence}%\n\nSentences:\n` +
-        results.sentences.map((s, i) => `${i + 1}. [${s.roleId}] ${s.text}`).join("\n"),
-      ],
-      { type: "application/pdf" }
-    );
 
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "LegalSeg_Insights_Report.pdf";
-    link.click();
-  };
+  // ✅ Export: Download PDF
+ const handleDownloadPDF = () => {
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text("LegalSeg Results Report", 10, 10);
+  doc.setFontSize(11);
+  doc.text(`Document: ${document.title || "Untitled"}`, 10, 20);
+  doc.text(`Analyzed: ${document.date || "N/A"}`, 10, 30);
+  doc.text("Sentences:", 10, 40);
+
+  let y = 50;
+  results.sentences.forEach((s, i) => {
+    const line = `${i + 1}. [${getRoleById(s.roleId)?.name || s.roleId}] ${s.text}`;
+    const splitText = doc.splitTextToSize(line, 180);
+    if (y + splitText.length * 7 > 280) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.text(splitText, 10, y);
+    y += splitText.length * 7;
+  });
+
+  doc.save("LegalSeg_Results_Report.pdf");
+};
 
   // ✅ Export: Export CSV
   const handleExportCSV = () => {
@@ -86,7 +157,24 @@ const handleBackToResults = () => {
     alert("Copied insights to clipboard!");
   };
 
-  if (!results) {
+  if (loading)
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #0f2027, #203a43, #2c5364)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#fff",
+          fontFamily: "Montserrat, sans-serif",
+        }}
+      >
+        <h2>Loading insights...</h2>
+      </div>
+    );
+
+  if (!results)
     return (
       <div
         style={{
@@ -118,9 +206,8 @@ const handleBackToResults = () => {
         </button>
       </div>
     );
-  }
 
-  const totalSentences = results.sentences.length;
+  const totalSentences = results.sentences?.length || 0;
   const roleDistribution = allRoles.map((role) => ({
     ...role,
     count: results.sentences.filter((s) => s.roleId === role.id).length,
