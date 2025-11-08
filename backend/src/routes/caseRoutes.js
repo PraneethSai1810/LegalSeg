@@ -423,6 +423,12 @@ const results = {
       results,
     };
 
+    // ✅ Send response immediately
+res.status(201).json({ document: caseRecord, results });
+
+// ✅ Save prediction in background (non-blocking)
+(async () => {
+  try {
     user.cases = [caseRecord, ...(user.cases || [])];
     await user.save();
 
@@ -432,15 +438,17 @@ const results = {
       storedFilename,
       date: new Date(),
       status: "completed",
-      summary: results.data?.[0] || results.summary || "",
+      summary: results.summary || "",
       avgConfidence: results.avgConfidence || 0,
       sentences: results.sentences || [],
     });
 
     await predictionDoc.save();
-
     console.log("✅ Prediction saved successfully with ID:", predictionDoc._id);
-    return res.status(201).json({ document: caseRecord, results, prediction: predictionDoc });
+  } catch (err) {
+    console.warn("⚠️ Background save failed:", err.message);
+  }
+})();
   } catch (err) {
     console.error("❌ Error in /api/cases/upload:", err);
     return res.status(500).json({ message: "Server error" });
